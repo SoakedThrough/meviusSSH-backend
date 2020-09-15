@@ -9,15 +9,6 @@ public class ConnectionInfo {
     private int port;
     private String user;
     private int timeout;
-    private String command;
-    private ConnectType connect;
-    private ResolvedResult resolvedResult;
+    private String rsaName;
 
-    public enum ConnectType{
-        LINK,EXECUTE
-    }
-
-    public enum ResolvedResult{
-        FAIL,SUCCESS
-    }
 }

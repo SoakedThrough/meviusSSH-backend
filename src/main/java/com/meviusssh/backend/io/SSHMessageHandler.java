@@ -1,7 +1,11 @@
 package com.meviusssh.backend.io;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.meviusssh.backend.entity.ConnectionInfo;
+import com.meviusssh.backend.entity.WebSocketMsg;
 import com.meviusssh.backend.utils.SSHContext;
 import com.meviusssh.backend.utils.SSHUtils;
 import io.netty.channel.ChannelHandlerContext;
@@ -20,26 +24,37 @@ public class SSHMessageHandler extends SimpleChannelInboundHandler<TextWebSocket
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, TextWebSocketFrame textWebSocketFrame) throws Exception {
         String context = textWebSocketFrame.text();
-        ConnectionInfo resolvedMsg = SSHUtils.getConnect(context);
-        //解析成功
-        if (resolvedMsg.getResolvedResult().equals(ConnectionInfo.ResolvedResult.SUCCESS)){
-            //连接操作
-            if (resolvedMsg.getConnect().equals(ConnectionInfo.ConnectType.LINK)){
-                Session session = SSHUtils.getSession(resolvedMsg);
-                SSHContext.addSession(channelHandlerContext.channel().id().asShortText(),session);
-                clients.writeAndFlush(new TextWebSocketFrame("success"));
-            }
+        JSONObject msg = JSON.parseObject(context);
+        if (msg.getString("type").equals("login")){
+            ConnectionInfo resolvedMsg = SSHContext.getCookie(msg.getString("cookieKey"));
 
-            //执行操作
-            if (resolvedMsg.getConnect().equals(ConnectionInfo.ConnectType.EXECUTE)){
-                Session session = SSHContext.getSession(channelHandlerContext.channel().id().asShortText());
-                String res = SSHUtils.executeCommand(session,resolvedMsg.getCommand());
+            if (resolvedMsg == null){
+                log.info("解析失败");
+                clients.writeAndFlush(new TextWebSocketFrame("fail connected"));
+            }else {
+                try {
+                    Session session = SSHUtils.getSession(resolvedMsg);
+                    SSHContext.addSession(msg.getString("cookieKey"),session);
+                    clients.writeAndFlush(new TextWebSocketFrame("success"));
+                    SSHContext.removeCookie(msg.getString("cookieKey"));
+                }catch (JSchException e){
+                    e.printStackTrace();
+                    clients.writeAndFlush(new TextWebSocketFrame(e.getMessage()));
+                }
+            }
+        }else if (msg.getString("type").equals("exec")){
+            try {
+                Session session = SSHContext.getSession(msg.getString("cookieKey"));
+                String res = SSHUtils.executeCommand(session,msg.getString("content"));
+                if (msg.getString("content").equals("exit")){
+                    SSHUtils.destroyConnection(msg.getString("cookieKey"));
+                }
                 clients.writeAndFlush(new TextWebSocketFrame(res));
+            }catch (JSchException e){
+                e.printStackTrace();
+                clients.writeAndFlush(new TextWebSocketFrame(e.getMessage()));
             }
-        }
 
-        if (resolvedMsg.getResolvedResult().equals(ConnectionInfo.ResolvedResult.FAIL)){
-            clients.writeAndFlush(new TextWebSocketFrame("fail"));
         }
 
 
