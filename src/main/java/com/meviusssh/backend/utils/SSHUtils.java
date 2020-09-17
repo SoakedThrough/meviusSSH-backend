@@ -1,14 +1,10 @@
 package com.meviusssh.backend.utils;
 
 
-import com.alibaba.fastjson.JSON;
 import com.jcraft.jsch.*;
 import com.meviusssh.backend.entity.ConnectionInfo;
-import com.meviusssh.backend.entity.WebSocketMsg;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -20,6 +16,7 @@ public class SSHUtils {
     private static final String ENCODING = "UTF-8";
     private static final int timeout = 60 * 60 * 1000;
     private static final int defaultPort = 22;
+    public final static String HELLO = "hello";
 
     @Value("${rsa.url}")
     private String getRsaUrl;
@@ -95,15 +92,20 @@ public class SSHUtils {
 
     public static void destroyConnection(String key){
         Session session = SSHContext.getSession(key);
-        SSHContext.removeSession(key);
+        SSHContext.removeChannel(key);
         SSHContext.removeShell(session);
     }
 
-    public static String executeCommand(Session session, String command) throws IOException, JSchException, InterruptedException {
+    public static String executeCommand(Session session, String command) throws JSchException, IOException, InterruptedException {
         return executeCommand(session,command,ENCODING);
     }
 
     public static String executeCommand(Session session, String command, String encoding) throws JSchException, IOException, InterruptedException {
+        boolean hFlag = false;
+        if (command.equals(HELLO)){
+            command = " ";
+            hFlag = true;
+        }
         ChannelShell channelShell = createChannelShell(session);
         StringBuffer sBuffer = new StringBuffer();
         int beat = 0;
@@ -139,6 +141,12 @@ public class SSHUtils {
             }
             // 将stringbuff读取的InputStream数据，转换成特定编码格式的字符串，一般为UTF-8格式
             result = new String(sBuffer.toString().getBytes(encoding));
+
+            if (hFlag){
+                result = "\n" + result;
+            }else {
+                result = result.substring(command.length());
+            }
 
         log.info("命令执行完，返回的结果为：" + result);
         return result;
