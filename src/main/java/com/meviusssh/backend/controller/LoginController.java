@@ -4,21 +4,24 @@ import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SftpException;
 import com.meviusssh.backend.entity.ConnectionInfo;
 import com.meviusssh.backend.entity.ReturnMsg;
+import com.meviusssh.backend.utils.ReturnUtils;
+import com.meviusssh.backend.utils.SFTPUtils;
 import com.meviusssh.backend.utils.SSHContext;
 import com.meviusssh.backend.utils.SSHUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
+
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.constraints.NotNull;
-import javax.xml.ws.RequestWrapper;
-import java.io.BufferedReader;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -30,6 +33,7 @@ public class LoginController {
     String rsaUrl;
 
     @CrossOrigin
+//    @Async
     @RequestMapping(value = "/loginByPwd",method = RequestMethod.POST)
     public void loginByPwd(@RequestBody JSONObject jsonObject, HttpServletResponse response) throws IOException {
 
@@ -47,31 +51,29 @@ public class LoginController {
         log.info("connectionInfo:{}",connectionInfo);
 
         String uuid = "";
-        ObjectMapper mapper = new ObjectMapper();
 
-        ReturnMsg returnMsg = new ReturnMsg();
         try {
-            uuid = SSHContext.getUUID(connectionInfo);
+            uuid = SSHUtils.getUUID(connectionInfo);
             Session session = SSHUtils.getSession(connectionInfo);
             SSHContext.addSession(uuid, session);
 
-            returnMsg.setUuid(uuid);
-            returnMsg.setSuccess(true);
+           response.getWriter().write(ReturnUtils.success(uuid));
         }catch (JSchException e) {
             e.printStackTrace();
-            returnMsg.setSuccess(false);
+            response.getWriter().write(ReturnUtils.fail());
+        }finally {
+            response.getWriter().close();
         }
-
-        response.getWriter().write(mapper.writeValueAsString(returnMsg));
-        response.getWriter().close();
     }
 
     @CrossOrigin
+//    @Async
     @PostMapping("/loginByRsa")
-    public String loginByRsa(@RequestParam("file") MultipartFile file, @NotNull String ip, @RequestParam(required = false) Integer port, @NotNull String user){
+    public void loginByRsa(@RequestParam("file") MultipartFile file, @NotNull String ip,
+                           @RequestParam(required = false) Integer port, @NotNull String user, HttpServletResponse response) throws IOException {
         try {
             if (file.isEmpty()){
-                return "file is empty";
+                response.getWriter().write(ReturnUtils.fail());
             }
             String fileName = file.getOriginalFilename();
             log.info(fileName);
@@ -96,13 +98,21 @@ public class LoginController {
             }
             log.info("connectionInfo:{}",connectionInfo);
 
-            String uuid = SSHContext.getUUID(connectionInfo);
+            String uuid = SSHUtils.getUUID(connectionInfo);
             Session session = SSHUtils.getSession(connectionInfo);
             SSHContext.addSession(uuid,session);
-            return uuid;
+
+            if (dest.exists() && dest.isFile()){
+                dest.delete();
+            }
+
+            response.getWriter().write(ReturnUtils.success(uuid));
         } catch (IOException | JSchException e) {
             e.printStackTrace();
-            return e.getMessage();
+            response.getWriter().write(ReturnUtils.fail());
+        }finally {
+            response.getWriter().close();
         }
     }
+
 }

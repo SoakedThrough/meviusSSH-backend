@@ -3,3 +3,9 @@ server:
 
 rsa:
   url: /Users/tyh/Desktop/dest/
+
+sftp:
+  download:
+    url: /Users/tyh/Desktop/dest/download/
+  upload:
+    url: /Users/tyh/Desktop/dest/upload/

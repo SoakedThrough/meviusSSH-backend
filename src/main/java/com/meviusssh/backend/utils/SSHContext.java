@@ -1,5 +1,6 @@
 package com.meviusssh.backend.utils;
 
+import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.Session;
 import com.meviusssh.backend.entity.ConnectionInfo;
@@ -8,12 +9,30 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class SSHContext {
-    private static Map<String, Session> sessionMap = new HashMap<>();
-    private static Map<Session, ChannelShell> shellMap = new HashMap<>();
-    private static Map<String,Session> channelMap = new HashMap<>();
+    private static Map<String, Session> sessionMap = new ConcurrentHashMap<>();
+    private static Map<Session, ChannelShell> shellMap = new ConcurrentHashMap<>();
+    private static Map<String, Session> channelMap = new ConcurrentHashMap<>();
+    private static Map<Session, ChannelSftp> sftpMap = new ConcurrentHashMap<>();
+
+    public static Map<String,Session> getSessionMap(){
+        return sessionMap;
+    }
+
+    public static void addSftp(Session session,ChannelSftp channelSftp){
+        sftpMap.put(session,channelSftp);
+    }
+
+    public static ChannelSftp getSftp(Session session){
+        return sftpMap.get(session);
+    }
+
+    public static void removeSftp(Session session){
+        sftpMap.remove(session);
+    }
 
     public static void addChannel(String channelID, Session session){
         channelMap.put(channelID,session);
@@ -38,13 +57,6 @@ public class SSHContext {
     public static void removeShell(Session session){
         shellMap.remove(session);
     }
-
-    public static String getUUID(ConnectionInfo connectionInfo){
-        String nameSpace = connectionInfo.getIp() + connectionInfo.getUser();
-        String key = UUID.nameUUIDFromBytes(nameSpace.getBytes()).toString();
-        return key;
-    }
-
 
     public static void addSession(String key, Session session){
         sessionMap.put(key, session);

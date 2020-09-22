@@ -1,21 +1,63 @@
 package com.meviusssh.backend.utils;
 
 import com.jcraft.jsch.*;
+import com.meviusssh.backend.entity.ReturnMsg;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
+import java.io.File;
 import java.io.InputStream;
 import java.io.PrintStream;
 
+@Component
 public class SFTPUtils {
 
-    public static String downloadFile(Session session,String url) throws JSchException, SftpException {
-        Channel channel = session.openChannel("sftp");
-        channel.connect();
+    @Value("${sftp.download.url}")
+    private String getDownloadUrl;
 
-        ChannelSftp channelSftp = (ChannelSftp) channel;
+    @Value("${sftp.upload.url}")
+    private String getUploadUrl;
 
-        channelSftp.get(url,"/Users/tyh/Desktop/dest/download");
+    private static String downloadUrl;
+    private static String uploadUrl;
 
+    @PostConstruct
+    public void init(){
+        downloadUrl = getDownloadUrl;
+        uploadUrl = getUploadUrl;
+    }
 
-        return "";
+    public static ChannelSftp createSftpChannel(Session session) throws JSchException {
+        ChannelSftp channelSftp = SSHContext.getSftp(session);
+        if (channelSftp == null){
+            channelSftp = (ChannelSftp) session.openChannel("sftp");
+            SSHContext.addSftp(session,channelSftp);
+            channelSftp.connect();
+        }
+        return channelSftp;
+    }
+
+    public static File downloadFile(Session session, String uuid, String remoteFilePath, String fileName) throws JSchException, SftpException {
+
+        ChannelSftp channelSftp = createSftpChannel(session);
+        String localPath = downloadUrl + uuid + "-" + fileName;
+
+        channelSftp.get(remoteFilePath,localPath);
+
+        File file = new File(localPath);
+
+        return file;
+    }
+
+    public static void uploadFile(Session session, String url, String localFileName, String filename) throws JSchException, SftpException {
+
+        ChannelSftp channelSftp = createSftpChannel(session);
+        String remotePath = url + filename;
+        String localPath = uploadUrl  + localFileName;
+
+        channelSftp.put(localPath,remotePath);
+
     }
 }

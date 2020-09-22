@@ -5,10 +5,15 @@ import com.jcraft.jsch.*;
 import com.meviusssh.backend.entity.ConnectionInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.*;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Future;
 
 @Component
 @Slf4j
@@ -26,6 +31,12 @@ public class SSHUtils {
     @PostConstruct
     public void init(){
         rsaUrl = getRsaUrl;
+    }
+
+    public static String getUUID(ConnectionInfo connectionInfo){
+        String nameSpace = connectionInfo.getIp() + connectionInfo.getUser();
+        String key = UUID.nameUUIDFromBytes(nameSpace.getBytes()).toString();
+        return key;
     }
 
     public static Session getSession(ConnectionInfo connectionInfo) throws JSchException {
@@ -59,11 +70,6 @@ public class SSHUtils {
         session.setTimeout(timeout);
         session.connect();
 
-        File file = new File(rsaName);
-        if (file.exists() && file.isFile()){
-            file.delete();
-        }
-
         return session;
     }
 
@@ -91,14 +97,28 @@ public class SSHUtils {
     }
 
     public static void destroyConnection(String key){
-        Session session = SSHContext.getSession(key);
+        Session session = SSHContext.getSessionByChannel(key);
         SSHContext.removeChannel(key);
+        SSHContext.getShell(session).disconnect();
         SSHContext.removeShell(session);
+        SSHContext.getSftp(session).disconnect();
+        SSHContext.removeSftp(session);
+        session.disconnect();
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public static void clean(){
+        for (Map.Entry<String,Session> tmp : SSHContext.getSessionMap().entrySet()){
+            if (tmp.getValue() == null){
+                SSHContext.removeSession(tmp.getKey());
+            }
+        }
     }
 
     public static String executeCommand(Session session, String command) throws JSchException, IOException, InterruptedException {
         return executeCommand(session,command,ENCODING);
     }
+
 
     public static String executeCommand(Session session, String command, String encoding) throws JSchException, IOException, InterruptedException {
         boolean hFlag = false;
@@ -122,7 +142,11 @@ public class SSHUtils {
             out.write(execCommand.getBytes());
             // 清空缓存区，开始执行
             out.flush();
-            Thread.sleep(100);
+            if (hFlag){
+                Thread.sleep(1000);
+            }else {
+                Thread.sleep(100);
+            }
             while (true) {
                 if (beat > 3) {
                     break;
@@ -143,6 +167,14 @@ public class SSHUtils {
             result = new String(sBuffer.toString().getBytes(encoding));
 
             if (hFlag){
+                String[] tmp = result.split("\n");
+                result = "";
+                for (int i = 0; i < tmp.length - 1; i++) {
+                    result += tmp[i] + "\n";
+                    if (i == tmp.length-2){
+                        result = result.substring(0,result.length()-3);
+                    }
+                }
                 result = "\n" + result;
             }else {
                 result = result.substring(command.length());
