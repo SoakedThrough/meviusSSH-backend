@@ -1,6 +1,7 @@
 server:
   port: 8080
 
+
 rsa:
   url: /Users/tyh/Desktop/dest/
 
@@ -9,3 +10,8 @@ sftp:
     url: /Users/tyh/Desktop/dest/download/
   upload:
     url: /Users/tyh/Desktop/dest/upload/
+spring:
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB

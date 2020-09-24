@@ -3,24 +3,23 @@ package com.meviusssh.backend.utils;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.Session;
-import com.meviusssh.backend.entity.ConnectionInfo;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class SSHContext {
-    private static Map<String, Session> sessionMap = new ConcurrentHashMap<>();
-    private static Map<Session, ChannelShell> shellMap = new ConcurrentHashMap<>();
-    private static Map<String, Session> channelMap = new ConcurrentHashMap<>();
-    private static Map<Session, ChannelSftp> sftpMap = new ConcurrentHashMap<>();
+    private static volatile Map<String, Session> sessionMap = new ConcurrentHashMap<>();
+    private static volatile Map<Session, ChannelShell> shellMap = new ConcurrentHashMap<>();
+    private static volatile Map<String, Session> channelMap = new ConcurrentHashMap<>();
+    private static volatile Map<Session, ChannelSftp> sftpMap = new ConcurrentHashMap<>();
 
     public static Map<String,Session> getSessionMap(){
         return sessionMap;
     }
+
+    public static Map<Session, ChannelSftp> getSftpMap(){return sftpMap;}
 
     public static void addSftp(Session session,ChannelSftp channelSftp){
         sftpMap.put(session,channelSftp);

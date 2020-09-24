@@ -1,16 +1,12 @@
 package com.meviusssh.backend.io;
 
-import com.alibaba.fastjson.JSONObject;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
-import com.meviusssh.backend.utils.MeviusChannelMatcher;
 import com.meviusssh.backend.utils.SSHContext;
 import com.meviusssh.backend.utils.SSHUtils;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.ChannelMatcher;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.concurrent.GlobalEventExecutor;
@@ -76,11 +72,11 @@ public class SSHMessageHandler extends SimpleChannelInboundHandler<TextWebSocket
 
         }
 
-        else if (context.endsWith("%")){
-            String reg = context.substring(0,context.length()-1);
+        else if (context.startsWith("%mtab:")){
+            String reg = context.substring(6);
             Session session = SSHContext.getSessionByChannel(channelHandlerContext.channel().id().asShortText());
             try{
-                String res = SSHUtils.executeCommand(session,"k\t\t");
+                String res = SSHUtils.executeCommand(session,"ls");
                 String[] list = res.split("\r\n");
                 int flag = 0;
                 for (int i = 0; i < list.length-1; i++) {
@@ -89,6 +85,9 @@ public class SSHMessageHandler extends SimpleChannelInboundHandler<TextWebSocket
                     }
                     String[] tmp = list[i].split(" ");
                     for (int j = 0; j < tmp.length; j++) {
+                        if (tmp[j].equals("")){
+                            continue;
+                        }
                         if (tmp[j].startsWith(reg)){
                             if (flag++ > 1){
                                 break;
@@ -98,8 +97,8 @@ public class SSHMessageHandler extends SimpleChannelInboundHandler<TextWebSocket
                     }
                 }
 
-                res = res.substring(context.length()-1);
-                if (flag > 1){
+                res = res.substring(reg.length());
+                if (flag > 1 || flag == 0){
                     clients.writeAndFlush(new TextWebSocketFrame("meviusMatch:fail:"));
                 }else {
                     clients.writeAndFlush(new TextWebSocketFrame("meviusMatch:success:"+res),channelMatcher);

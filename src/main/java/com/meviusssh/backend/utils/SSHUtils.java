@@ -5,7 +5,6 @@ import com.jcraft.jsch.*;
 import com.meviusssh.backend.entity.ConnectionInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +12,7 @@ import javax.annotation.PostConstruct;
 import java.io.*;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Future;
+
 
 @Component
 @Slf4j
@@ -101,13 +100,16 @@ public class SSHUtils {
         SSHContext.removeChannel(key);
         SSHContext.getShell(session).disconnect();
         SSHContext.removeShell(session);
-        SSHContext.getSftp(session).disconnect();
+        if (SSHContext.getSftpMap().containsKey(session)){
+            SSHContext.getSftp(session).disconnect();
+        }
         SSHContext.removeSftp(session);
         session.disconnect();
     }
 
     @Scheduled(fixedDelay = 60000)
     public static void clean(){
+        log.info("清理uuidMap");
         for (Map.Entry<String,Session> tmp : SSHContext.getSessionMap().entrySet()){
             if (tmp.getValue() == null){
                 SSHContext.removeSession(tmp.getKey());
@@ -145,7 +147,7 @@ public class SSHUtils {
             if (hFlag){
                 Thread.sleep(1000);
             }else {
-                Thread.sleep(100);
+                Thread.sleep(250);
             }
             while (true) {
                 if (beat > 3) {

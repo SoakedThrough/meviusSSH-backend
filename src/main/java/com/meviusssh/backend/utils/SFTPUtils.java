@@ -1,15 +1,13 @@
 package com.meviusssh.backend.utils;
 
 import com.jcraft.jsch.*;
-import com.meviusssh.backend.entity.ReturnMsg;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
-import java.io.InputStream;
-import java.io.PrintStream;
+
 
 @Component
 public class SFTPUtils {
